@@ -18,6 +18,9 @@
         "db:studio": "npm run studio --workspace=packages/db",
         "pages:build": "NEXT_PUBLIC_BASE_PATH=/${GITHUB_REPOSITORY#*/} npm run build --workspace=apps/web"
     },
+    "engines": {
+        "node": "20.x"
+    },
     "devDependencies": {
         "typescript": "^5.6.3"
     }

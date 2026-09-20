@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: kairos-api
+    runtime: node
+    plan: free
+    buildCommand: |
+      npm install
+      npm run generate --workspace=packages/db
+      npm run build --workspace=apps/api
+    startCommand: npm run start --workspace=apps/api
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false

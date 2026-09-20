@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://kairos-api.onrender.com";
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const token = typeof window !== "undefined" ? window.localStorage.getItem("kairos_token") : null;
