@@ -1,0 +1,24 @@
+{
+    "name": "kairos",
+    "private": true,
+    "version": "0.1.0",
+    "description": "Kairos - App de microlearning e gamificação para grupos de jovens católicos",
+    "workspaces": [
+        "apps/*",
+        "packages/*"
+    ],
+    "scripts": {
+        "dev:web": "npm run dev --workspace=apps/web",
+        "dev:api": "npm run dev --workspace=apps/api",
+        "build": "npm run build --workspaces --if-present",
+        "build:web": "npm run build --workspace=apps/web",
+        "lint": "npm run lint --workspaces --if-present",
+        "db:generate": "npm run generate --workspace=packages/db",
+        "db:migrate": "npm run migrate --workspace=packages/db",
+        "db:studio": "npm run studio --workspace=packages/db",
+        "pages:build": "NEXT_PUBLIC_BASE_PATH=/${GITHUB_REPOSITORY#*/} npm run build --workspace=apps/web"
+    },
+    "devDependencies": {
+        "typescript": "^5.6.3"
+    }
+}

@@ -1,0 +1,343 @@
+// Prisma schema for Kairos
+// Datasource: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Users & Communities ----------
+
+enum EngagementPace {
+  TRANQUILO
+  FIRME
+  INTENSO
+}
+
+enum AuthProvider {
+  EMAIL
+  GOOGLE
+  APPLE
+}
+
+enum GroupRole {
+  MEMBER
+  COORDINATOR
+  ADMIN
+}
+
+model Parish {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  latitude  Float?
+  longitude Float?
+  createdAt DateTime @default(now())
+
+  groups Group[]
+  events Event[]
+}
+
+model Group {
+  id        String   @id @default(cuid())
+  name      String // ex: "Jovens Santa Cruz", "Crisma 2026", "Coral Jovem"
+  type      String // ex: JPA, coroinhas, crisma
+  parishId  String
+  parish    Parish   @relation(fields: [parishId], references: [id])
+  createdAt DateTime @default(now())
+
+  memberships GroupMembership[]
+  missions    Mission[]
+  posts       Post[]
+}
+
+model User {
+  id             String         @id @default(cuid())
+  name           String
+  email          String         @unique
+  passwordHash   String?
+  authProvider   AuthProvider    @default(EMAIL)
+  avatarUrl      String?
+  engagementPace EngagementPace @default(FIRME)
+  xp             Int            @default(0)
+  coins          Int            @default(0)
+  hearts         Int            @default(5)
+  heartsRefillAt DateTime?
+  currentStreak  Int            @default(0)
+  longestStreak  Int            @default(0)
+  lastActivityAt DateTime?
+  createdAt      DateTime       @default(now())
+
+  memberships      GroupMembership[]
+  lessonProgress   LessonProgress[]
+  badges           UserBadge[]
+  rsvps            RSVP[]
+  checkIns         CheckIn[]
+  posts            Post[]
+  missionProgress  MissionProgress[]
+  analyticsEvents  AnalyticsEvent[]
+}
+
+model GroupMembership {
+  id       String    @id @default(cuid())
+  userId   String
+  groupId  String
+  role     GroupRole @default(MEMBER)
+  joinedAt DateTime  @default(now())
+
+  user  User  @relation(fields: [userId], references: [id])
+  group Group @relation(fields: [groupId], references: [id])
+
+  @@unique([userId, groupId])
+}
+
+// ---------- Content Trails (Microlearning) ----------
+
+enum TrailTheme {
+  LITURGIA_DIARIA
+  CATEQUESE
+  SANTOS
+  DOUTRINA_SOCIAL
+  ORACOES
+}
+
+enum LessonType {
+  PILL
+  QUIZ
+  PRACTICAL_CHALLENGE
+}
+
+model Trail {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  theme       TrailTheme
+  order       Int        @default(0)
+  createdAt   DateTime   @default(now())
+
+  modules Module[]
+}
+
+model Module {
+  id      String @id @default(cuid())
+  trailId String
+  title   String
+  order   Int    @default(0)
+
+  trail   Trail    @relation(fields: [trailId], references: [id])
+  lessons Lesson[]
+}
+
+model Lesson {
+  id       String     @id @default(cuid())
+  moduleId String
+  title    String
+  type     LessonType
+  order    Int        @default(0)
+  content  Json? // rich content for PILL / PRACTICAL_CHALLENGE lessons
+  xpReward Int        @default(10)
+
+  module    Module           @relation(fields: [moduleId], references: [id])
+  questions Question[]
+  progress  LessonProgress[]
+}
+
+model Question {
+  id       String @id @default(cuid())
+  lessonId String
+  text     String
+  order    Int    @default(0)
+
+  lesson  Lesson   @relation(fields: [lessonId], references: [id])
+  choices Choice[]
+}
+
+model Choice {
+  id          String  @id @default(cuid())
+  questionId  String
+  text        String
+  isCorrect   Boolean @default(false)
+  explanation String?
+
+  question Question @relation(fields: [questionId], references: [id])
+}
+
+model LessonProgress {
+  id          String    @id @default(cuid())
+  userId      String
+  lessonId    String
+  completedAt DateTime?
+  xpEarned    Int       @default(0)
+  heartsLost  Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  user   User   @relation(fields: [userId], references: [id])
+  lesson Lesson @relation(fields: [lessonId], references: [id])
+
+  @@unique([userId, lessonId])
+}
+
+// ---------- Gamification: Badges ----------
+
+model Badge {
+  id          String @id @default(cuid())
+  code        String @unique // ex: GUERREIRO_DA_ORACAO
+  name        String
+  description String
+  iconUrl     String?
+
+  users UserBadge[]
+}
+
+model UserBadge {
+  id       String   @id @default(cuid())
+  userId   String
+  badgeId  String
+  earnedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id])
+  badge Badge @relation(fields: [badgeId], references: [id])
+
+  @@unique([userId, badgeId])
+}
+
+// ---------- Missions & Engagement ----------
+
+enum MissionType {
+  MASS_CHECKIN
+  CHARITY_EVENT
+  BIBLE_READING
+  CUSTOM
+}
+
+model Mission {
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  type        MissionType
+  goalValue   Int // ex: 50 (kg de alimentos), 3 (amigos)
+  groupId     String? // null = missão individual/global
+  startDate   DateTime
+  endDate     DateTime
+  createdAt   DateTime    @default(now())
+
+  group    Group?            @relation(fields: [groupId], references: [id])
+  progress MissionProgress[]
+}
+
+model MissionProgress {
+  id           String   @id @default(cuid())
+  missionId    String
+  userId       String
+  currentValue Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
+  mission Mission @relation(fields: [missionId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([missionId, userId])
+}
+
+// ---------- Events, RSVP & Check-ins ----------
+
+enum EventType {
+  MASS
+  RETREAT
+  CAMP
+  MEETING
+  SOCIAL_ACTION
+}
+
+enum RsvpStatus {
+  GOING
+  MAYBE
+  NOT_GOING
+}
+
+enum CheckInMethod {
+  GEOLOCATION
+  QR_CODE
+}
+
+model Event {
+  id          String    @id @default(cuid())
+  parishId    String
+  title       String
+  description String?
+  type        EventType
+  location    String?
+  latitude    Float?
+  longitude   Float?
+  radiusMeters Int      @default(150)
+  qrCodeToken String?   @unique
+  startsAt    DateTime
+  endsAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  parish   Parish    @relation(fields: [parishId], references: [id])
+  rsvps    RSVP[]
+  checkIns CheckIn[]
+}
+
+model RSVP {
+  id          String     @id @default(cuid())
+  eventId     String
+  userId      String
+  status      RsvpStatus
+  respondedAt DateTime   @default(now())
+
+  event Event @relation(fields: [eventId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@unique([eventId, userId])
+}
+
+model CheckIn {
+  id          String        @id @default(cuid())
+  eventId     String
+  userId      String
+  method      CheckInMethod
+  latitude    Float?
+  longitude   Float?
+  checkedInAt DateTime      @default(now())
+  xpAwarded   Int           @default(0)
+
+  event Event @relation(fields: [eventId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@unique([eventId, userId])
+}
+
+// ---------- Communication ----------
+
+model Post {
+  id        String    @id @default(cuid())
+  authorId  String
+  groupId   String?
+  title     String
+  body      String
+  pinned    Boolean   @default(false)
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  author User   @relation(fields: [authorId], references: [id])
+  group  Group? @relation(fields: [groupId], references: [id])
+}
+
+// ---------- Analytics ----------
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  eventType String // ex: LESSON_COMPLETED, QUIZ_ANSWERED, APP_OPENED, CHECKIN, RSVP
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([eventType, createdAt])
+}
